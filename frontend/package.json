@@ -1,0 +1,25 @@
+{
+  "name": "scamshield-frontend",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "ScamShield frontend - scam detection platform",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.11.0",
+    "socket.io-client": "^4.5.0",
+    "axios": "^1.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^3.1.0",
+    "vite": "^4.2.0",
+    "tailwindcss": "^3.2.7",
+    "postcss": "^8.4.21",
+    "autoprefixer": "^10.4.14"
+  }
+}
