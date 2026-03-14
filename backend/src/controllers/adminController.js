@@ -2,6 +2,8 @@ import Report from '../models/Report.js';
 import Identifier from '../models/Identifier.js';
 import User from '../models/User.js';
 import riskEngine from '../services/riskEngine.js';
+import scraperService from '../services/scraperService.js';
+import ScraperLog from '../models/ScraperLog.js';
 
 export const approveReport = async (req, res) => {
   try {
@@ -163,5 +165,50 @@ export const getAdminStats = async (req, res) => {
   } catch (error) {
     console.error('Get admin stats error:', error);
     res.status(500).json({ message: 'Error fetching stats' });
+  }
+};
+
+export const runScrapers = async (req, res) => {
+  try {
+    const { module, maxRecords } = req.body || {};
+    const limit = Number(maxRecords || process.env.SCRAPER_MAX_RECORDS_PER_SOURCE || 100);
+
+    if (module) {
+      const result = await scraperService.runSingle(module, limit);
+      return res.json({
+        message: `Scraper '${module}' completed`,
+        result
+      });
+    }
+
+    const summary = await scraperService.runAll(limit);
+    return res.json({
+      message: 'All scrapers completed',
+      summary
+    });
+  } catch (error) {
+    console.error('Run scrapers error:', error);
+    return res.status(500).json({ message: 'Error running scrapers' });
+  }
+};
+
+export const getScraperStatus = async (req, res) => {
+  try {
+    const status = await scraperService.getStatus();
+    res.json(status);
+  } catch (error) {
+    console.error('Get scraper status error:', error);
+    res.status(500).json({ message: 'Error fetching scraper status' });
+  }
+};
+
+export const getScraperLogs = async (req, res) => {
+  try {
+    const limit = Math.min(200, Number(req.query.limit || 50));
+    const logs = await ScraperLog.find({}).sort({ createdAt: -1 }).limit(limit);
+    res.json({ logs });
+  } catch (error) {
+    console.error('Get scraper logs error:', error);
+    res.status(500).json({ message: 'Error fetching scraper logs' });
   }
 };

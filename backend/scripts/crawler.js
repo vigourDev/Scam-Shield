@@ -13,6 +13,14 @@ dotenv.config();
 
 class ScamCrawler {
   constructor() {
+    this.parseURLhaus = this.parseURLhaus.bind(this);
+    this.parsePhishTank = this.parsePhishTank.bind(this);
+    this.parseOpenPhish = this.parseOpenPhish.bind(this);
+    this.parsePhishingDatabase = this.parsePhishingDatabase.bind(this);
+    this.parseTelegramScams = this.parseTelegramScams.bind(this);
+    this.parsePhishingEmails = this.parsePhishingEmails.bind(this);
+    this.parseScamWallets = this.parseScamWallets.bind(this);
+
     this.sources = [
       {
         name: 'URLhaus API',
@@ -25,6 +33,18 @@ class ScamCrawler {
         url: 'http://data.phishtank.com/data/online-valid.json',
         type: 'website',
         parser: this.parsePhishTank
+      },
+      {
+        name: 'OpenPhish',
+        url: 'https://openphish.com/feed.txt',
+        type: 'website',
+        parser: this.parseOpenPhish
+      },
+      {
+        name: 'Phishing Database (GitHub)',
+        url: 'https://raw.githubusercontent.com/mitchellkrogza/Phishing.Database/master/phishing-domains-ACTIVE.txt',
+        type: 'website',
+        parser: this.parsePhishingDatabase
       },
       {
         name: 'Telegram Scams',
@@ -45,6 +65,33 @@ class ScamCrawler {
         parser: this.parseScamWallets
       }
     ];
+    this.domainSet = new Set();
+  }
+
+  normalizeDomain(value) {
+    if (!value) return null;
+    try {
+      const candidate = String(value).trim().toLowerCase();
+      const withProtocol = candidate.startsWith('http://') || candidate.startsWith('https://')
+        ? candidate
+        : `https://${candidate}`;
+      return new URL(withProtocol).hostname.toLowerCase().replace(/^www\./, '');
+    } catch {
+      return String(value).trim().toLowerCase().replace(/^www\./, '').split('/')[0] || null;
+    }
+  }
+
+  addWebsiteResult(results, value, risk = 85, source = 'public_feed', description = 'Public phishing source') {
+    const domain = this.normalizeDomain(value);
+    if (!domain || this.domainSet.has(domain)) return;
+    this.domainSet.add(domain);
+    results.push({
+      value: domain,
+      type: 'website',
+      risk,
+      category: 'phishing',
+      description: `${description} (${source})`
+    });
   }
 
   /**
@@ -57,14 +104,7 @@ class ScamCrawler {
         data.urls.forEach(item => {
           if (item.threat === 'phishing' && item.url) {
             try {
-              const hostname = new URL(item.url).hostname;
-              results.push({
-                value: hostname,
-                type: 'website',
-                risk: 85,
-                category: 'phishing',
-                description: `Phishing site reported to URLhaus`
-              });
+              this.addWebsiteResult(results, item.url, 85, 'urlhaus', 'Phishing site reported to URLhaus');
             } catch (e) {
               // Skip invalid URLs
             }
@@ -87,14 +127,7 @@ class ScamCrawler {
         data.slice(0, 100).forEach(item => {
           if (item.url) {
             try {
-              const hostname = new URL(item.url).hostname;
-              results.push({
-                value: hostname,
-                type: 'website',
-                risk: 88,
-                category: 'phishing',
-                description: `Active phishing site from PhishTank`
-              });
+              this.addWebsiteResult(results, item.url, 88, 'phishtank', 'Active phishing site from PhishTank');
             } catch (e) {
               // Skip invalid URLs
             }
@@ -103,6 +136,36 @@ class ScamCrawler {
       }
     } catch (error) {
       console.error('Error parsing PhishTank:', error.message);
+    }
+    return results;
+  }
+
+  parseOpenPhish(data) {
+    const results = [];
+    try {
+      const lines = String(data || '').split('\n').map((line) => line.trim()).filter(Boolean);
+      lines.forEach((line) => {
+        this.addWebsiteResult(results, line, 90, 'openphish', 'Active phishing URL from OpenPhish feed');
+      });
+    } catch (error) {
+      console.error('Error parsing OpenPhish:', error.message);
+    }
+    return results;
+  }
+
+  parsePhishingDatabase(data) {
+    const results = [];
+    try {
+      const lines = String(data || '')
+        .split('\n')
+        .map((line) => line.trim().toLowerCase())
+        .filter((line) => line && !line.startsWith('#'));
+
+      lines.forEach((line) => {
+        this.addWebsiteResult(results, line, 89, 'phishing_database', 'Active phishing domain from GitHub feed');
+      });
+    } catch (error) {
+      console.error('Error parsing Phishing Database:', error.message);
     }
     return results;
   }
@@ -187,8 +250,21 @@ class ScamCrawler {
   async fetchFromSource(source) {
     try {
       console.log(`⏳ Fetching from ${source.name}...`);
-      const response = await axios.get(source.url, { timeout: 10000 });
-      
+
+      // Local/static parser sources
+      if (!source.url) {
+        const results = source.parser(null);
+        console.log(`✓ Got ${results.length} items from ${source.name}`);
+        return results;
+      }
+
+      const response = await axios.get(source.url, {
+        timeout: 10000,
+        headers: {
+          'User-Agent': 'ScamShieldCrawler/1.0 (+https://localhost)'
+        }
+      });
+
       if (response.status === 200) {
         const results = source.parser(response.data);
         console.log(`✓ Got ${results.length} items from ${source.name}`);
@@ -256,6 +332,7 @@ class ScamCrawler {
     try {
       console.log('\n🔍 Starting scam data crawler...');
       await connectDB();
+      this.domainSet = new Set();
 
       let totalAdded = 0;
       let totalUpdated = 0;

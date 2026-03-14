@@ -30,19 +30,23 @@ class RiskEngine {
 
     // Telegram patterns
     if (type === 'telegram') {
-      if (/^@.*(crypto|fast|profit|money|invest|bitcoin|secure|bank).*/i.test(value)) {
+      // Only flag when the handle is PRIMARILY scam-bait keywords
+      // e.g. "@fastprofit_crypto" but NOT "@securebank_official"
+      if (/^@?(?:crypto|fast|profit|money|invest|bitcoin)[-_]?\w{0,10}$/i.test(value)) {
         patterns.push('suspicious_keywords');
       }
-      if (/^@[a-z0-9]{1,3}$/i.test(value)) {
+      if (/^@?[a-z0-9]{1,3}$/i.test(value)) {
         patterns.push('suspiciously_short');
       }
       if (value.length > 32) patterns.push('suspiciously_long');
     }
 
-    // Email patterns
+    // Email patterns — tightened: only flag disposable/free TLDs,
+    // removed the overly broad `\d{4}@` rule that caught normal emails.
     if (type === 'email') {
-      if (/\d{4}@/.test(value)) patterns.push('number_prefix');
-      if (/(\.tk|\.ml|\.ga|\.cf)$/i.test(value)) patterns.push('free_domain');
+      if (/(\.tk|\.ml|\.ga|\.cf|\.gq)$/i.test(value)) patterns.push('free_domain');
+      // Flag long random-looking local parts: 10+ mixed alphanumeric chars
+      if (/^[a-z0-9]{10,}@/i.test(value)) patterns.push('random_local_part');
     }
 
     // Cryptocurrency wallet patterns

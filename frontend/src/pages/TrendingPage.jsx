@@ -58,44 +58,53 @@ export default function TrendingPage() {
         <>
           {/* Top Categories */}
           <div className="card">
-            <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">🏆 Top Scam Categories</h2>
-            <div className="space-y-3 md:space-y-4">
-              {trending.topCategories.map((category, idx) => (
-                <div key={idx} className="flex items-center gap-2 md:gap-4">
-                  <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-sm md:text-base">
-                    {idx + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1 gap-2">
-                      <span className={`inline-block ${getCategoryColor(category._id)} px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-semibold`}>
-                        {category._id.replace(/_/g, ' ')}
-                      </span>
-                      <span className="text-lg md:text-2xl font-bold text-gray-900 flex-shrink-0">{category.count}</span>
+            <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Top Scam Categories</h2>
+            {(!trending.topCategories || trending.topCategories.length === 0) ? (
+              <p className="text-gray-500 text-center py-4">No category data available yet.</p>
+            ) : (
+              <div className="space-y-3 md:space-y-4">
+                {trending.topCategories.map((category, idx) => {
+                  const maxCount = Math.max(...trending.topCategories.map(c => c.count), 1);
+                  return (
+                    <div key={idx} className="flex items-center gap-2 md:gap-4">
+                      <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-sm md:text-base">
+                        {idx + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1 gap-2">
+                          <span className={`inline-block ${getCategoryColor(category._id)} px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-semibold`}>
+                            {(category._id || 'unknown').replace(/_/g, ' ')}
+                          </span>
+                          <span className="text-lg md:text-2xl font-bold text-gray-900 flex-shrink-0">{category.count}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full"
+                            style={{
+                              width: `${(category.count / maxCount) * 100}%`
+                            }}
+                          ></div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full"
-                        style={{
-                          width: `${(category.count / Math.max(...trending.topCategories.map(c => c.count))) * 100}%`
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Trending Types */}
-          {trending.trendingTypes.length > 0 && (
+          {trending.trendingTypes?.length > 0 && (
             <div className="card">
-              <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">📱 Trending Scam Types</h2>
+              <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Trending Scam Types</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {trending.trendingTypes.map((type, idx) => {
                   const categories = type.categories || [];
-                  const topCategory = categories.reduce((a, b) =>
-                    (categories.filter(v => v === a).length >
-                      categories.filter(v => v === b).length ? a : b), categories[0]);
+                  const topCategory = categories.length > 0
+                    ? categories.reduce((a, b) =>
+                        (categories.filter(v => v === a).length >
+                          categories.filter(v => v === b).length ? a : b), categories[0])
+                    : null;
 
                   return (
                     <div key={idx} className="p-3 md:p-4 border border-gray-200 rounded-lg hover:shadow-md transition">
@@ -120,17 +129,19 @@ export default function TrendingPage() {
             <div className="card">
               <p className="text-gray-600 text-xs md:text-sm mb-2">Total Reports (30 days)</p>
               <p className="text-2xl md:text-3xl font-bold text-blue-600">
-                {trending.trendingTypes.reduce((sum, t) => sum + t.count, 0)}
+                {(trending.trendingTypes || []).reduce((sum, t) => sum + t.count, 0)}
               </p>
             </div>
             <div className="card">
               <p className="text-gray-600 text-xs md:text-sm mb-2">Active Scam Types</p>
-              <p className="text-2xl md:text-3xl font-bold text-orange-600">{trending.trendingTypes.length}</p>
+              <p className="text-2xl md:text-3xl font-bold text-orange-600">{(trending.trendingTypes || []).length}</p>
             </div>
             <div className="card">
               <p className="text-gray-600 text-xs md:text-sm mb-2">Top Category</p>
               <p className="text-xl md:text-2xl font-bold text-green-600">
-                {trending.topCategories[0]?._id.replace(/_/g, ' ') || 'N/A'}
+                {trending.topCategories?.[0]?._id
+                  ? trending.topCategories[0]._id.replace(/_/g, ' ')
+                  : 'N/A'}
               </p>
             </div>
           </div>

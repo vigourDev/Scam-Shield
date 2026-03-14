@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node scripts/seedData.js",
-    "crawl": "node scripts/crawler.js"
+    "crawl": "node scripts/crawler.js",
+    "scrape": "node scripts/runScrapers.js"
   },
   "keywords": [
     "scam",

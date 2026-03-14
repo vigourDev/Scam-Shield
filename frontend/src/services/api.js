@@ -31,6 +31,8 @@ export const authAPI = {
 export const checkAPI = {
   check: (type, value) =>
     api.post('/check', { type, value }),
+  intelligenceSearch: (type, value) =>
+    api.post('/intelligence/search', { type, value }),
   getReports: (value, type) =>
     api.get(`/reports/${value}`, { params: { type } }),
 };

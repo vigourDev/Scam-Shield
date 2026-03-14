@@ -8,6 +8,7 @@ import connectDB from './database/connection.js';
 import errorHandler from './middleware/errorHandler.js';
 import Identifier from './models/Identifier.js';
 import ExternalDataFetcher from './services/externalDataFetcher.js';
+import scraperService from './services/scraperService.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -99,6 +100,15 @@ app.use('/api/admin', adminRoutes);
 // Health check route
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Server is running' });
+});
+
+// Friendly root route for browser visits to port 5000
+app.get('/', (req, res) => {
+  res.json({
+    message: 'ScamShield backend is running.',
+    ui: 'http://localhost:5173',
+    apiHealth: '/api/health'
+  });
 });
 
 // Error handling middleware
@@ -220,6 +230,8 @@ const PORT = process.env.PORT || 5000;
     httpServer.listen(PORT, async () => {
       console.log(`\n🚀 ScamShield server running on port ${PORT}\n`);
       
+      const scraperEnabled = process.env.SCRAPER_ENABLED !== 'false';
+
       // Check if database already has data
       const count = await Identifier.countDocuments();
       
@@ -227,23 +239,32 @@ const PORT = process.env.PORT || 5000;
         console.log('📦 Database is empty. Fetching data from external public APIs...\n');
         
         try {
-          // Initialize external data fetcher
-          const fetcher = new ExternalDataFetcher();
-          
-          // Fetch all external data
-          const fetchResult = await fetcher.fetchAllExternalData();
-          
-          if (fetchResult.success && fetchResult.totalFetched > 0) {
-            // Save to database
-            const saveResult = await fetcher.saveToDatabase();
-            console.log(`\n✅ Successfully populated database with ${saveResult.created} external scam records\n`);
-            
-            // Create sample reports
-            const reportCount = await fetcher.createSampleReports();
-            console.log(`✅ Generated ${reportCount} sample scam reports linked to identifiers\n`);
+          if (scraperEnabled) {
+            const summary = await scraperService.runAll(
+              Number(process.env.SCRAPER_MAX_RECORDS_PER_SOURCE || 100)
+            );
+            console.log(
+              `\n✅ Scraper bootstrap complete. Fetched ${summary.totalFetched}, saved ${summary.totalSaved}\n`
+            );
           } else {
-            console.log('\n⚠️  No external data fetched. Running fallback auto-seed...\n');
-            await autoSeedDatabase();
+            // Initialize external data fetcher
+            const fetcher = new ExternalDataFetcher();
+            
+            // Fetch all external data
+            const fetchResult = await fetcher.fetchAllExternalData();
+            
+            if (fetchResult.success && fetchResult.totalFetched > 0) {
+              // Save to database
+              const saveResult = await fetcher.saveToDatabase();
+              console.log(`\n✅ Successfully populated database with ${saveResult.created} external scam records\n`);
+              
+              // Create sample reports
+              const reportCount = await fetcher.createSampleReports();
+              console.log(`✅ Generated ${reportCount} sample scam reports linked to identifiers\n`);
+            } else {
+              console.log('\n⚠️  No external data fetched. Running fallback auto-seed...\n');
+              await autoSeedDatabase();
+            }
           }
         } catch (error) {
           console.error(`\n⚠️  Error fetching external data: ${error.message}`);
@@ -252,6 +273,11 @@ const PORT = process.env.PORT || 5000;
         }
       } else {
         console.log(`✅ Database has ${count} existing scam records. Ready to serve requests!\n`);
+      }
+
+      if (scraperEnabled) {
+        scraperService.startScheduler();
+        console.log('🕒 Scraper scheduler started');
       }
     });
   } catch (error) {

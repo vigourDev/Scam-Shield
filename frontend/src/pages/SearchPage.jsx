@@ -4,11 +4,13 @@ import { checkAPI } from '../services/api';
 
 export default function SearchPage() {
   const [searchParams] = useSearchParams();
+  const initialHasQuery = Boolean(searchParams.get('value'));
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchValue, setSearchValue] = useState(searchParams.get('value') || '');
   const [searchType, setSearchType] = useState(searchParams.get('type') || 'telegram');
+  const [showSearchForm, setShowSearchForm] = useState(!initialHasQuery);
 
   useEffect(() => {
     if (searchParams.get('value')) {
@@ -34,6 +36,7 @@ export default function SearchPage() {
     e.preventDefault();
     if (searchValue.trim()) {
       performSearch(searchType, searchValue);
+      setShowSearchForm(false);
     }
   };
 
@@ -53,7 +56,23 @@ export default function SearchPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
+      {!showSearchForm && result && (
+        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex items-center justify-between">
+          <p className="text-sm text-gray-600">
+            Viewing analysis for <strong>{result.identifier?.value}</strong>
+          </p>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => setShowSearchForm(true)}
+          >
+            Analyze Another
+          </button>
+        </div>
+      )}
+
       {/* Search Form */}
+      {showSearchForm && (
       <form onSubmit={handleSearch} className="bg-white p-4 md:p-6 rounded-lg shadow-md">
         <h2 className="text-xl md:text-2xl font-bold mb-4">Check Scam Risk</h2>
         <div className="flex flex-col md:flex-row gap-2">
@@ -81,6 +100,7 @@ export default function SearchPage() {
           </button>
         </div>
       </form>
+      )}
 
       {error && (
         <div className="bg-red-100 text-red-800 p-4 rounded-lg">
@@ -91,7 +111,10 @@ export default function SearchPage() {
       {loading && (
         <div className="bg-white p-8 rounded-lg shadow-md text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Checking identifier...</p>
+          <p className="mt-4 text-gray-600 font-semibold">Scanning in real-time...</p>
+          <p className="mt-1 text-gray-400 text-sm">
+            Querying 15+ sources: Reddit, GitHub, DuckDuckGo, URLscan.io, PhishTank, ThreatFox, StopForumSpam, EmailRep, ChainAbuse &amp; more
+          </p>
         </div>
       )}
 
@@ -131,14 +154,16 @@ export default function SearchPage() {
                 <p className="text-gray-600 text-sm">First Reported</p>
                 <p className="text-sm font-semibold">
                   {result.identifier.firstReported
-                    ? new Date(result.identifier.firstReported).tolocaleDateString()
+                    ? new Date(result.identifier.firstReported).toLocaleDateString()
                     : 'N/A'}
                 </p>
               </div>
               <div>
                 <p className="text-gray-600 text-sm">Last Reported</p>
                 <p className="text-sm font-semibold">
-                  {new Date(result.identifier.lastReported).toLocaleDateString()}
+                  {result.identifier.lastReported
+                    ? new Date(result.identifier.lastReported).toLocaleDateString()
+                    : 'N/A'}
                 </p>
               </div>
             </div>
@@ -210,6 +235,212 @@ export default function SearchPage() {
                   </div>
                 )}
               </div>
+
+              {/* Fraud Risk Profile for BIN */}
+              {result.cardDetails.fraudRiskProfile && (
+                <div className="mt-4">
+                  <div className={`p-4 rounded-lg border-2 ${
+                    result.cardDetails.fraudRiskProfile.riskLevel === 'High'
+                      ? 'bg-red-50 border-red-300'
+                      : result.cardDetails.fraudRiskProfile.riskLevel === 'Medium'
+                      ? 'bg-yellow-50 border-yellow-300'
+                      : 'bg-green-50 border-green-300'
+                  }`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-bold text-sm uppercase tracking-wide">
+                        🔍 Fraud Risk Assessment
+                      </p>
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                        result.cardDetails.fraudRiskProfile.riskLevel === 'High'
+                          ? 'bg-red-200 text-red-800'
+                          : result.cardDetails.fraudRiskProfile.riskLevel === 'Medium'
+                          ? 'bg-yellow-200 text-yellow-800'
+                          : 'bg-green-200 text-green-800'
+                      }`}>
+                        {result.cardDetails.fraudRiskProfile.riskLevel} Risk
+                      </span>
+                    </div>
+                    {result.cardDetails.fraudRiskProfile.inFraudDatabase && (
+                      <p className="text-red-700 font-semibold text-sm mb-2">
+                        ⚠️ This BIN is in our fraud database
+                      </p>
+                    )}
+                    {result.cardDetails.fraudRiskProfile.factors?.map((f, i) => (
+                      <div key={i} className="mt-2 p-2 bg-white bg-opacity-60 rounded">
+                        <p className={`text-xs font-bold uppercase ${
+                          f.severity === 'high' ? 'text-red-700' : f.severity === 'medium' ? 'text-yellow-700' : 'text-gray-600'
+                        }`}>
+                          {f.severity === 'high' ? '🔴' : f.severity === 'medium' ? '🟡' : '⚪'} {f.factor}
+                        </p>
+                        <p className="text-xs text-gray-700 mt-1">{f.detail}</p>
+                      </div>
+                    ))}
+                    <p className="text-xs text-gray-600 mt-3 italic border-t pt-2">
+                      {result.cardDetails.fraudRiskProfile.advice}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Phone Details */}
+          {result.phoneDetails && (
+            <div className="card">
+              <h3 className="text-xl font-bold mb-4">📞 Phone Origin</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-gray-600 text-xs font-semibold uppercase">Number</p>
+                  <p className="text-md font-bold text-blue-900 break-all">{result.phoneDetails.normalized}</p>
+                </div>
+                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                  <p className="text-gray-600 text-xs font-semibold uppercase">Country Code</p>
+                  <p className="text-md font-bold text-green-900">{result.phoneDetails.countryCode}</p>
+                </div>
+                <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                  <p className="text-gray-600 text-xs font-semibold uppercase">Country / Origin</p>
+                  <p className="text-md font-bold text-orange-900">{result.phoneDetails.country}</p>
+                </div>
+                <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  <p className="text-gray-600 text-xs font-semibold uppercase">Region</p>
+                  <p className="text-md font-bold text-purple-900">{result.phoneDetails.region || 'Unknown'}</p>
+                </div>
+              </div>
+              {result.phoneDetails.localNumber && (
+                <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="text-gray-600 text-xs font-semibold uppercase">Local Number</p>
+                  <p className="text-md font-bold text-gray-900">{result.phoneDetails.localNumber}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Live Intelligence — real-time multi-source scan */}
+          {result.liveIntelligence && (
+            <div className="card">
+              <div className="flex items-start justify-between mb-1">
+                <h3 className="text-xl font-bold">🌐 Live Web Intelligence</h3>
+                <div className="flex flex-col items-end gap-1">
+                  {result.liveIntelligence.fromCache && (
+                    <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">cached</span>
+                  )}
+                  {result.liveIntelligence.searchedAt && (
+                    <span className="text-xs text-gray-400">
+                      {new Date(result.liveIntelligence.searchedAt).toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 mb-4">
+                <span className="text-xs bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full">Reddit</span>
+                <span className="text-xs bg-gray-100 text-gray-700 border border-gray-200 px-2 py-0.5 rounded-full">GitHub</span>
+                <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">DuckDuckGo</span>
+                <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">Google CSE</span>
+                <span className="text-xs bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full">URLscan.io</span>
+                <span className="text-xs bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-full">PhishTank</span>
+                <span className="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 px-2 py-0.5 rounded-full">ThreatFox</span>
+                <span className="text-xs bg-pink-50 text-pink-700 border border-pink-200 px-2 py-0.5 rounded-full">StopForumSpam</span>
+                <span className="text-xs bg-cyan-50 text-cyan-700 border border-cyan-200 px-2 py-0.5 rounded-full">EmailRep</span>
+                <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">ChainAbuse</span>
+                <span className="text-xs bg-lime-50 text-lime-700 border border-lime-200 px-2 py-0.5 rounded-full">VirusTotal</span>
+                <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full">IPQS</span>
+                <span className="text-xs bg-teal-50 text-teal-700 border border-teal-200 px-2 py-0.5 rounded-full">Spamhaus</span>
+                <span className="text-xs bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full">AbuseIPDB</span>
+                <span className="text-xs bg-violet-50 text-violet-700 border border-violet-200 px-2 py-0.5 rounded-full">ScamAdviser</span>
+                <span className="text-xs bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded-full">HIBP</span>
+              </div>
+
+              {!result.liveIntelligence.found ? (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+                  No scam mentions found across 15+ intelligence sources including Reddit, GitHub, DuckDuckGo, URLscan.io, PhishTank, ThreatFox, StopForumSpam &amp; more.
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500 mb-3">
+                    {result.liveIntelligence.mentions} result(s) found across live sources
+                    {result.liveIntelligence.riskBoost > 0 && (
+                      <span className="ml-2 text-orange-700 font-semibold">
+                        +{result.liveIntelligence.riskBoost} pts added to risk score
+                      </span>
+                    )}
+                    {result.liveIntelligence.flagged && (
+                      <span className="ml-2 bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs font-semibold">
+                        ⚠️ Flagged as scam
+                      </span>
+                    )}
+                  </p>
+                  <div className="space-y-3">
+                    {result.liveIntelligence.sources.map((src, idx) => {
+                      const platformBadge =
+                        src.platform?.includes('Reddit') ? 'bg-orange-100 text-orange-800' :
+                        src.platform?.includes('GitHub') ? 'bg-gray-200 text-gray-800' :
+                        src.platform?.includes('URLscan') ? 'bg-purple-100 text-purple-800' :
+                        src.platform?.includes('PhishTank') ? 'bg-red-100 text-red-800' :
+                        src.platform?.includes('ThreatFox') ? 'bg-yellow-100 text-yellow-800' :
+                        src.platform?.includes('StopForumSpam') ? 'bg-pink-100 text-pink-800' :
+                        src.platform?.includes('EmailRep') ? 'bg-cyan-100 text-cyan-800' :
+                        src.platform?.includes('ChainAbuse') || src.platform?.includes('BitcoinAbuse') ? 'bg-amber-100 text-amber-800' :
+                        src.platform?.includes('VirusTotal') ? 'bg-lime-100 text-lime-800' :
+                        src.platform?.includes('IPQS') || src.platform?.includes('IPQuality') ? 'bg-indigo-100 text-indigo-800' :
+                        src.platform?.includes('Spamhaus') ? 'bg-teal-100 text-teal-800' :
+                        src.platform?.includes('AbuseIPDB') ? 'bg-rose-100 text-rose-800' :
+                        src.platform?.includes('ScamAdviser') ? 'bg-violet-100 text-violet-800' :
+                        src.platform?.includes('HaveIBeenPwned') || src.platform?.includes('HIBP') ? 'bg-sky-100 text-sky-800' :
+                        'bg-blue-100 text-blue-800';
+                      return (
+                        <div key={idx} className={`p-3 rounded-lg border ${
+                          src.flagged ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
+                        }`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${platformBadge}`}>
+                                  {src.platform === 'Reddit' ? `Reddit r/${src.subreddit}` :
+                                   src.platform === 'GitHub' ? `GitHub: ${src.repoName || ''}` :
+                                   src.platform}
+                                </span>
+                                {src.flagged && (
+                                  <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">
+                                    ⚠️ Scam flagged
+                                  </span>
+                                )}
+                                {src.scanScore != null && (
+                                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                    Score: {src.scanScore}/100
+                                  </span>
+                                )}
+                              </div>
+                              <a
+                                href={src.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm font-semibold text-blue-700 hover:underline line-clamp-2"
+                              >
+                                {src.title}
+                              </a>
+                              {src.snippet && (
+                                <p className="text-xs text-gray-600 mt-1 line-clamp-3">{src.snippet}</p>
+                              )}
+                              {src.screenshot && (
+                                <a href={src.screenshot} target="_blank" rel="noopener noreferrer"
+                                   className="text-xs text-purple-600 hover:underline mt-1 inline-block">
+                                  📸 View URLscan screenshot
+                                </a>
+                              )}
+                            </div>
+                            {src.date && (
+                              <p className="text-xs text-gray-400 whitespace-nowrap shrink-0">
+                                {new Date(src.date).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           )}
 

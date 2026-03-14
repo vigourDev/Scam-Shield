@@ -29,16 +29,20 @@ class ScamNetworkService {
     const linkedIdentifiersMap = new Map();
 
     for (const linkedId of linkedIdentifierIds) {
-      const sharedReports = reports.filter(r => 
-        r.linkedReports?.includes(linkedId)
-      ).map(r => r._id);
+      // Count how many verified reports reference this linked identifier
+      const sharedReportCount = await Report.countDocuments({
+        identifierId: linkedId,
+        status: 'verified'
+      });
 
-      const strength = Math.min((sharedReports.length / reports.length) * 100, 100);
+      const strength = reports.length > 0
+        ? Math.min((sharedReportCount / reports.length) * 100, 100)
+        : 0;
 
       linkedIdentifiersMap.set(linkedId.toString(), {
         identifier: linkedId,
         strength,
-        sharedReports
+        sharedReports: []
       });
     }
 

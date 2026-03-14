@@ -56,13 +56,13 @@ export const submitReport = async (req, res) => {
 
     await report.save();
 
-    // Update identifier
+    // Update identifier — only count verified reports, don't inflate with pending
     identifier.lastReported = new Date();
     const verifiedReports = await Report.countDocuments({
       identifierId: identifier._id,
       status: 'verified'
     });
-    identifier.reportsCount = verifiedReports + 1;
+    identifier.reportsCount = verifiedReports;
     identifier.calculateRiskScore();
     await identifier.save();
 
@@ -93,7 +93,7 @@ export const submitReport = async (req, res) => {
 
 export const getTrendingScams = async (req, res) => {
   try {
-    const days = req.query.days || 30;
+    const days = parseInt(req.query.days, 10) || 30;
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 

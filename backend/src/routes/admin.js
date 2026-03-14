@@ -6,7 +6,10 @@ import {
   blacklistIdentifier,
   banUser,
   unbanUser,
-  getAdminStats
+  getAdminStats,
+  runScrapers,
+  getScraperStatus,
+  getScraperLogs
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -20,5 +23,8 @@ router.post('/identifiers/:identifierId/blacklist', blacklistIdentifier);
 router.post('/users/:userId/ban', banUser);
 router.post('/users/:userId/unban', unbanUser);
 router.get('/stats', getAdminStats);
+router.post('/scrapers/run', runScrapers);
+router.get('/scrapers/status', getScraperStatus);
+router.get('/scrapers/logs', getScraperLogs);
 
 export default router;

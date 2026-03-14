@@ -3,14 +3,12 @@ import mongoose from 'mongoose';
 const identifierSchema = new mongoose.Schema({
   value: {
     type: String,
-    required: true,
-    index: true
+    required: true
   },
   type: {
     type: String,
     enum: ['phone', 'telegram', 'website', 'email', 'crypto', 'card_bin'],
-    required: true,
-    index: true
+    required: true
   },
   riskScore: {
     type: Number,
@@ -30,7 +28,7 @@ const identifierSchema = new mongoose.Schema({
   firstReported: Date,
   lastReported: {
     type: Date,
-    default: Date.now
+    default: null
   },
   linkedIdentifiers: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -41,11 +39,16 @@ const identifierSchema = new mongoose.Schema({
     default: false
   },
   source: String,
+  category: String,
+  description: String,
   createdAt: {
     type: Date,
     default: Date.now
   }
 });
+
+// Compound unique index prevents duplicate identifiers of the same type
+identifierSchema.index({ type: 1, value: 1 }, { unique: true });
 
 // Auto-calculate risk score when reports or blacklist status changes
 identifierSchema.methods.calculateRiskScore = function() {

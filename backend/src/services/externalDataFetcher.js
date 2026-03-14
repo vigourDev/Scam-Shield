@@ -442,7 +442,7 @@ class ExternalDataFetcher {
     try {
       console.log('\n📝 Creating sample reports for identifiers...\n');
       
-      const mongoose = require('mongoose');
+      const mongoose = (await import('mongoose')).default;
       let reportCount = 0;
 
       const sampleReports = [
